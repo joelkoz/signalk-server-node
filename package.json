@@ -82,7 +82,7 @@
   },
   "dependencies": {
     "@signalk/freeboard-sk": "^1.0.0",
-    "@signalk/instrumentpanel": "0.x",
+    "@signalk/instrumentpanel": "^0.11.0",
     "@signalk/maptracker": "^1.0.0",
     "@signalk/playground": "^1.0.0",
     "@signalk/sailgauge": "^1.1.0",
