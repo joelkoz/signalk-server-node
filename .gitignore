@@ -58,3 +58,10 @@ nul
 # debug artefacts
 *.sln
 test/server-test-config/debug
+
+appstore-cache/
+applicationData/**
+priorities.json
+security.json
+sources-cache.json
+
