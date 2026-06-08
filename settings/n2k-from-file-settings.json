@@ -38,6 +38,7 @@
     }
   ],
   "interfaces": {},
+  "mdns": false,
   "security": {
     "strategy": "./tokensecurity"
   },
