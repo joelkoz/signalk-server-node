@@ -1,10 +1,22 @@
 import { Resource, Waypoint } from '@signalk/server-api'
 import chai from 'chai'
+import fs from 'fs'
+import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import { serverTestConfigDirectory } from './servertestutilities'
 import { startServer } from './ts-servertestutilities'
 chai.should()
 
 export const skUuid = () => `${uuidv4()}`
+
+const waypointsDir = () =>
+  path.join(
+    serverTestConfigDirectory(),
+    'plugin-config-data',
+    'resources-provider',
+    'resources',
+    'waypoints'
+  )
 
 describe('Resources Api', () => {
   it('can put and get a waypoint', async function () {
@@ -37,6 +49,64 @@ describe('Resources Api', () => {
       timestamp: resData.timestamp,
       $source: 'resources-provider'
     })
+
+    stop()
+  })
+
+  const postWaypoint = async (
+    post: (path: string, body: object) => Promise<Response>,
+    [latitude, longitude]: [number, number]
+  ) => {
+    const r = await post(`/resources/waypoints/`, {
+      feature: {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        }
+      }
+    })
+    const { id } = (await r.json()) as { id: string }
+    return id
+  }
+
+  it('a corrupt resource file does not hide the other waypoints', async function () {
+    const { get, post, stop } = await startServer()
+
+    const validIds = await Promise.all(
+      (
+        [
+          [60.151672, 24.891637],
+          [60.251672, 24.891637]
+        ] as [number, number][]
+      ).map((coords) => postWaypoint(post, coords))
+    )
+
+    // Simulate an interrupted write leaving a truncated (empty) file on disk.
+    fs.writeFileSync(path.join(waypointsDir(), skUuid()), '')
+
+    const listed = (await (await get('/resources/waypoints')).json()) as {
+      [id: string]: object
+    }
+    Object.keys(listed).should.have.members(validIds)
+
+    stop()
+  })
+
+  it('a corrupt file does not consume a limit slot', async function () {
+    const { get, post, stop } = await startServer()
+
+    // Write the corrupt file before the valid one so it is encountered first;
+    // if it consumed the single requested slot the valid waypoint would be
+    // missed.
+    fs.mkdirSync(waypointsDir(), { recursive: true })
+    fs.writeFileSync(path.join(waypointsDir(), '00000000-corrupt'), '')
+    const validId = await postWaypoint(post, [60.151672, 24.891637])
+
+    const listed = (await (
+      await get('/resources/waypoints?limit=1')
+    ).json()) as { [id: string]: object }
+    Object.keys(listed).should.deep.equal([validId])
 
     stop()
   })
